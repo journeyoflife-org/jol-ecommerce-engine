@@ -36,3 +36,22 @@ If you discover a vulnerability involving payment card data:
 ## PCI DSS Scope
 
 This project targets **SAQ A** compliance. See [docs/pci-scope-statement.md](docs/pci-scope-statement.md).
+
+## Static Analysis & Type Safety
+
+| Concern | Tool | Scope |
+|---|---|---|
+| Type correctness | `mypy --strict` | Pre-commit hook (blocking gate) |
+| Code quality | Ruff (E/W/F/I/N/UP/S/B/A/C4/DTZ/T20/RET/SIM/TCH/ARG/PTH/ERA/RUF) | Pre-commit hook |
+| Security | Bandit | Pre-commit hook (excludes tests/) |
+| Secrets | detect-secrets | Pre-commit hook |
+| CI quality | Qodana | GitHub Actions (non-blocking) |
+
+**Qodana role:** IDE-level inspections in CI (dead code, complexity, style). Qodana does **not** enforce type correctness.
+
+**Disabled Qodana inspections and rationale:**
+
+- `PyTypeHintsInspection` — Qodana's bundled Python SDK cannot resolve third-party types (stripe, pydantic, fastapi). Type correctness is enforced by `mypy --strict` instead.
+- `PyClassHasNoInitInspection` — `@dataclass` classes auto-generate `__init__`; Qodana flags them as missing.
+- `PyMethodMayBeStaticInspection` — Service methods access instance dependencies; making them static would break API design.
+- `PyShadowingNamesInspection` / `PyUnusedLocalInspection` — FastAPI lifespan and webhook dispatch parameters are intentionally present.

@@ -15,10 +15,19 @@ exclude:
       - .venv
       - node_modules
       - tests
-  # Qodana's bundled Python SDK cannot resolve third-party types from project
-  # dependencies (stripe, pydantic, etc.), causing false-positive "Invalid type
-  # annotation" errors on valid PEP 604 union syntax (X | None). Type correctness
-  # is enforced by mypy --strict in pre-commit hooks instead.
+  # ── Inspections delegated to local tooling ──────────────────
+  # Type correctness: enforced by mypy --strict in pre-commit hooks.
+  # Qodana's bundled Python SDK cannot resolve third-party types (stripe,
+  # pydantic, etc.), causing false positives on valid PEP 604 syntax.
   - name: PyTypeHintsInspection
+  # @dataclass classes auto-generate __init__; Qodana flags them as missing.
+  - name: PyClassHasNoInitInspection
+  # Service methods use instance dependencies (self._stripe) or follow
+  # dispatch patterns; making them static would break the API design.
+  - name: PyMethodMayBeStaticInspection
+  # FastAPI lifespan `app` parameter shadows module-level name by design;
+  # webhook handler `data` parameters are part of dispatch signatures.
+  - name: PyShadowingNamesInspection
+  - name: PyUnusedLocalInspection
 
 linter: jetbrains/qodana-python:latest
