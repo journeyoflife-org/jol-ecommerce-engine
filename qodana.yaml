@@ -5,6 +5,15 @@ version: "1.0"
 profile:
   name: qodana.recommended
 
+# Install project dependencies so PyTypeHintsInspection can resolve
+# third-party types (stripe, pydantic, fastapi, etc.)
+bootstrap: |
+  pip install --quiet \
+    fastapi uvicorn stripe pydantic pydantic-settings \
+    sqlalchemy alembic httpx cryptography python-jose \
+    python-dateutil structlog prometheus-client \
+    pytest pytest-asyncio
+
 include:
   - name: CheckDependencyLicenses
   - name: VulnerableLibraries
