@@ -1,0 +1,75 @@
+name: Bug Report
+description: Report a bug in the JOL Commerce Engine
+title: "[BUG] "
+labels: ["bug"]
+assignees:
+  - journeyoflife-org/platform-core
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug. Please fill out the sections below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened (include error messages, logs).
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Development (local)
+        - Staging
+        - Production
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or log output.
+
+  - type: checkboxes
+    id: pci-check
+    attributes:
+      label: PCI DSS Relevance
+      description: Does this bug involve payment data, card processing, or audit logs?
+      options:
+        - label: This bug involves payment card data or payment flows
+        - label: This bug involves audit logging or transaction logs
+        - label: This bug does NOT involve payment or audit systems

@@ -1,0 +1,78 @@
+name: Payment Flow Change
+description: Mandatory issue for any change to payment processing flows
+title: "[PAYMENT] "
+labels: ["payment", "security-review-required"]
+assignees:
+  - journeyoflife-org/security
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This issue template is MANDATORY for any change to payment flows.**
+        Any PR touching `/payments/`, `/audit/`, or `/frontend/src/payment/` requires security team co-approval.
+
+  - type: textarea
+    id: change-description
+    attributes:
+      label: Change Description
+      description: Detailed description of the payment flow change.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: saq-impact
+    attributes:
+      label: SAQ A Scope Impact
+      description: Does this change risk escalating PCI scope from SAQ A to SAQ D?
+      options:
+        - "No — card data remains fully within Stripe Elements/Checkout iframe"
+        - "Potentially — requires security team assessment"
+        - "Yes — raw card data may touch JOL servers (BLOCKING — do not proceed)"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: raw-card-data
+    attributes:
+      label: Raw Card Data Declaration
+      description: Confirm the following about raw card data (PAN, expiry, CVV).
+      options:
+        - label: "No raw card number (PAN) is transmitted to, logged by, or stored on JOL servers"
+          required: true
+        - label: "No raw CVV/CVC is transmitted to, logged by, or stored on JOL servers"
+          required: true
+        - label: "No raw card expiry is transmitted to, logged by, or stored on JOL servers outside Stripe token"
+          required: true
+        - label: "Stripe Elements/Checkout iframe is used for all card data collection"
+          required: true
+
+  - type: textarea
+    id: audit-impact
+    attributes:
+      label: Audit Log Impact
+      description: What new audit log entries will this change produce?
+    validations:
+      required: true
+
+  - type: textarea
+    id: script-inventory
+    attributes:
+      label: Payment Page Script Inventory (PCI Req. 6.4.3)
+      description: |
+        List any scripts added, removed, or modified on payment pages.
+        Update `compliance/pci/script-inventory.csv` and `docs/script-inventory.md` accordingly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: test-plan
+    attributes:
+      label: Test Plan
+      description: |
+        Describe the tests that verify this change:
+        - Unit tests for payment logic
+        - Integration tests for Stripe webhook handling
+        - Security test (`test_no_raw_card_data`) still passes
+    validations:
+      required: true
