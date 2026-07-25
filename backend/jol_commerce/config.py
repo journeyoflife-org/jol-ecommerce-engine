@@ -6,6 +6,7 @@ PCI DSS: no card data configuration exists here.
 
 from __future__ import annotations
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,6 +41,28 @@ class Settings(BaseSettings):
 
     # ── CORS ─────────────────────────────────────────────────
     cors_allowed_origins: list[str] = ["http://localhost:3000"]
+
+    @model_validator(mode="after")
+    def validate_required_secrets(self) -> Settings:
+        """Enforce that critical secrets are set — fail fast on startup."""
+        errors: list[str] = []
+        if not self.app_secret_key:
+            errors.append(
+                "APP_SECRET_KEY must be set. "
+                "Generate with: python -c 'import secrets; print(secrets.token_urlsafe(64))'"
+            )
+        if not self.stripe_secret_key:
+            errors.append(
+                "STRIPE_SECRET_KEY must be set. "
+                "Obtain from Stripe Dashboard -> Developers -> API keys."
+            )
+        if not self.stripe_webhook_secret:
+            errors.append(
+                "STRIPE_WEBHOOK_SECRET must be set. Obtain from Stripe Dashboard -> Webhooks."
+            )
+        if errors:
+            raise ValueError("Missing required secrets:\n  - " + "\n  - ".join(errors))
+        return self
 
     @property
     def is_production(self) -> bool:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, HTTPException
 
 from jol_commerce.api.schemas import CreateOrderRequest, OrderResponse
@@ -16,7 +18,7 @@ _repository = OrderRepository()
 async def create_order(request: CreateOrderRequest) -> OrderResponse:
     """Create a new order."""
     order = Order(
-        order_id=f"ORD-{id(request)}",
+        order_id=f"ORD-{uuid.uuid4().hex[:12]}",
         customer_id=request.customer_id,
         items=[item.model_dump() for item in request.items],
         total_amount_cents=request.total_amount_cents,

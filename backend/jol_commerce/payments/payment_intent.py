@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
+from jol_commerce.audit.audit_log import AuditLogger
 from jol_commerce.payments.stripe_client import StripeClient
 
 
@@ -64,6 +65,7 @@ class PaymentIntentService:
 
     def __init__(self) -> None:
         self._stripe = StripeClient()
+        self._audit = AuditLogger()
 
     def create_intent(self, request: PaymentIntentRequest) -> PaymentIntentResponse:
         """Create and confirm a payment intent.
@@ -87,6 +89,19 @@ class PaymentIntentService:
             customer_id=request.customer_id,
             idempotency_key=request.idempotency_key,
             metadata=metadata,
+        )
+
+        # PCI DSS Req. 10: log payment intent creation
+        self._audit.log(
+            actor="payment_service",
+            event_type="payment.created",
+            outcome="success",
+            transaction_ref=intent.id,
+            details={
+                "order_id": request.order_id,
+                "amount_cents": request.amount_cents,
+                "currency": request.currency,
+            },
         )
 
         return PaymentIntentResponse(

@@ -56,9 +56,9 @@ class TLSConfig:
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version = tls_version
 
-        # Disable weak cipher suites
-        cipher_string = "!".join(WEAK_CIPHER_SUITES)
-        context.set_ciphers(f"HIGH:{cipher_string}")
+        # Disable weak cipher suites — each must be individually negated with !
+        cipher_exclusions = ":".join(f"!{c}" for c in WEAK_CIPHER_SUITES)
+        context.set_ciphers(f"HIGH:{cipher_exclusions}")
 
         if self.cert_path and self.key_path:
             context.load_cert_chain(certfile=self.cert_path, keyfile=self.key_path)

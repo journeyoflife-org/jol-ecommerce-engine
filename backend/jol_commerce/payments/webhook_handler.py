@@ -15,6 +15,7 @@ from enum import Enum
 
 import stripe
 
+from jol_commerce.audit.audit_log import AuditLogger
 from jol_commerce.config import get_settings
 
 
@@ -58,6 +59,7 @@ class StripeWebhookHandler:
     def __init__(self) -> None:
         settings = get_settings()
         self._webhook_secret = settings.stripe_webhook_secret
+        self._audit = AuditLogger()
 
     def verify_signature(
         self,
@@ -125,6 +127,13 @@ class StripeWebhookHandler:
             "timestamp": datetime.now(UTC).isoformat(),
             "stripe_created": event.created,
         }
+        self._audit.log(
+            actor="stripe_webhook",
+            event_type=f"webhook.{event_type}",
+            outcome="success",
+            transaction_ref=payment_intent_id or event.id,
+            details=receipt,
+        )
 
         # Dispatch to handler based on event type
         if event_type == WebhookEventType.PAYMENT_INTENT_SUCCEEDED:
