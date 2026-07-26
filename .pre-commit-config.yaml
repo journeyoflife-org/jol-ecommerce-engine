@@ -1,0 +1,59 @@
+# Pre-commit hooks — enforce security and quality at commit time
+# Install: pre-commit install
+# Run all: pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.0
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic>=2.10
+          - pydantic-settings>=2.7
+          - fastapi>=0.115
+          - stripe>=11.0
+          - pytest>=8.3
+        args: ["--strict"]
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.3
+    hooks:
+      - id: bandit
+        args: ["-c", "pyproject.toml", "-r", "backend/"]
+        additional_dependencies: ["bandit[toml]"]
+
+  # PCI DSS — ensure no PAN patterns in committed code
+  - repo: local
+    hooks:
+      - id: no-pan-patterns
+        name: Check for raw PAN/card data patterns
+        entry: bash -c '! grep -rnE "[0-9]{13,19}" backend/ --include="*.py" | grep -v "test_" | grep -v "#" | grep -v "stripe"'
+        language: system
+        types: [python]
+        pass_filenames: false

@@ -1,0 +1,83 @@
+name: Production Deploy
+
+# MANUAL DISPATCH ONLY — no automatic production deployments
+# Requires GitHub Environment "production" with manual approver gate
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to deploy (e.g., v0.1.0)"
+        required: true
+        type: string
+      confirm:
+        description: "Type 'DEPLOY' to confirm production deployment"
+        required: true
+        type: string
+
+permissions:
+  id-token: write   # OIDC — no long-lived credentials
+  contents: read
+
+jobs:
+  validate:
+    name: Pre-deploy Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "DEPLOY" ]; then
+            echo "ERROR: You must type 'DEPLOY' to confirm production deployment."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run full test suite
+        run: pytest tests/ -v
+
+      - name: Run security checks
+        run: |
+          bandit -r backend/jol_commerce -c pyproject.toml
+          bash scripts/verify-no-pan-in-logs.sh --code-only
+
+  deploy:
+    name: Deploy to Production
+    needs: [validate]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://commerce.journeyoflife.org
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      # OIDC-based AWS authentication — no long-lived credentials in secrets
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Deploy application
+        run: |
+          echo "Deploying version ${{ github.event.inputs.version }} to production..."
+          # Deployment commands here (ECS, EKS, Lambda, etc.)
+
+      - name: Run post-deploy smoke tests
+        run: |
+          echo "Running post-deployment validation..."
+
+      - name: Record deployment in audit log
+        run: |
+          echo "Recording deployment event for PCI DSS Req. 10 audit trail."

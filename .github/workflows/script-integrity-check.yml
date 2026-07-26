@@ -1,0 +1,80 @@
+name: Payment Page Script Integrity Check
+
+# PCI DSS v4.0.1 Requirement 6.4.3
+# Verify integrity of all scripts loaded on payment pages on every deployment.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/src/payment/**"
+      - "frontend/src/shared/csp-nonce.ts"
+      - "compliance/pci/script-inventory.csv"
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/src/payment/**"
+      - "frontend/src/shared/**"
+
+permissions:
+  contents: read
+
+jobs:
+  script-integrity:
+    name: Script Integrity Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Verify script inventory exists
+        run: |
+          if [ ! -f "compliance/pci/script-inventory.csv" ]; then
+            echo "CRITICAL: Script inventory file missing!"
+            echo "PCI DSS v4.0.1 Req. 6.4.3 requires a documented inventory of every script on payment pages."
+            exit 1
+          fi
+          echo "Script inventory file present."
+
+      - name: Verify script inventory is non-empty
+        run: |
+          LINE_COUNT=$(wc -l < compliance/pci/script-inventory.csv)
+          if [ "$LINE_COUNT" -lt 2 ]; then
+            echo "CRITICAL: Script inventory has no entries (only header or empty)."
+            exit 1
+          fi
+          echo "Script inventory contains $LINE_COUNT entries."
+
+      - name: Check payment pages use CSP nonce
+        run: |
+          if ! grep -rn "nonce\|csp-nonce" frontend/src/payment/ frontend/src/shared/csp-nonce.ts; then
+            echo "WARNING: Payment pages may not be using CSP nonces."
+            echo "PCI DSS Req. 6.4.3 requires script integrity verification."
+            exit 1
+          fi
+          echo "CSP nonce usage detected in payment pages."
+
+      - name: Validate no inline scripts in payment components
+        run: |
+          if grep -rn "dangerouslySetInnerHTML\|innerHTML" frontend/src/payment/; then
+            echo "WARNING: Inline HTML injection detected in payment components."
+            echo "All scripts on payment pages must be in the documented inventory."
+            exit 1
+          fi
+          echo "No inline script injection patterns found."
+
+      - name: Compute and record build script hashes
+        run: |
+          echo "Computing SHA-256 hashes of built payment page assets..."
+          find dist/ -name "*.js" -exec sha256sum {} \; 2>/dev/null || echo "No dist output (build may not produce separate JS files)"

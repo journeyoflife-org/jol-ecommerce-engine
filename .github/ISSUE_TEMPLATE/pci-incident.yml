@@ -1,0 +1,77 @@
+name: PCI Incident Report
+description: Report a payment data security incident (CONFIDENTIAL)
+title: "[PCI-INCIDENT] "
+labels: ["pci-incident", "security", "confidential"]
+assignees:
+  - journeyoflife-org/security
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **CONFIDENTIAL — Payment Data Incident Report**
+
+        This template is for reporting suspected or confirmed payment data security incidents.
+        Under PCI DSS v4.0.1 and GDPR Art. 33, notification obligations may be triggered within 72 hours.
+
+        **Do NOT include actual card numbers (PANs) or CVVs in this issue.**
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - "P1 — Confirmed cardholder data exposure"
+        - "P2 — Suspected cardholder data exposure"
+        - "P3 — Security control failure (no confirmed data exposure)"
+        - "P4 — Near miss / control weakness identified"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Incident Description
+      description: What happened? When was it discovered? When did it begin?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope of Impact
+      description: |
+        - Number of potentially affected transactions/cardholders
+        - Countries affected (LT, LV, EE, other EU)
+        - Date range of exposure
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence (no PANs)
+      description: |
+        Relevant log references, transaction IDs, webhook events.
+        **Do NOT paste raw PANs or full card numbers.** Reference audit log IDs instead.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: notifications
+    attributes:
+      label: Notification Obligations
+      options:
+        - label: "Stripe notified (acquirer/processor)"
+        - label: "GDPR Art. 33 — 72h notification to supervisory authority assessed"
+        - label: "Card brands notified (if required)"
+        - label: "Affected individuals notification assessed (GDPR Art. 34)"
+        - label: "Legal counsel engaged"
+
+  - type: textarea
+    id: remediation
+    attributes:
+      label: Immediate Remediation Actions
+      description: What immediate steps have been taken to contain the incident?
+    validations:
+      required: true

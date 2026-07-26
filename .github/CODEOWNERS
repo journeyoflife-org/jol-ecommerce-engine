@@ -1,0 +1,28 @@
+# CODEOWNERS — JOL Commerce Engine
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything
+*                                           @journeyoflife-org/platform-core
+
+# Payment module — requires security team co-approval
+/backend/jol_commerce/payments/             @journeyoflife-org/platform-core @journeyoflife-org/security
+
+# Audit module — requires security team co-approval
+/backend/jol_commerce/audit/                @journeyoflife-org/platform-core @journeyoflife-org/security
+
+# Frontend payment components — requires security team co-approval
+/frontend/src/payment/                      @journeyoflife-org/platform-core @journeyoflife-org/security
+
+# PCI-related frontend shared modules
+/frontend/src/shared/csp-nonce.ts           @journeyoflife-org/platform-core @journeyoflife-org/security
+/frontend/src/shared/header-monitor.ts      @journeyoflife-org/platform-core @journeyoflife-org/security
+
+# Compliance documentation — compliance team owns
+/compliance/                                @journeyoflife-org/compliance
+
+# PCI scope and penetration test docs — compliance + security
+/docs/pci-scope-statement.md                @journeyoflife-org/compliance @journeyoflife-org/security
+/docs/penetration-test-scope.md             @journeyoflife-org/compliance @journeyoflife-org/security
+
+# PAN verification script — security team
+/scripts/verify-no-pan-in-logs.sh           @journeyoflife-org/security

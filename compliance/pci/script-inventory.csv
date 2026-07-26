@@ -1,0 +1,5 @@
+script_name,source_url,sha256_hash,authorized_date,justification,payment_page
+Stripe.js,https://js.stripe.com/v3/,PENDING_DEPLOY_HASH,2026-01-01,Card tokenisation for SAQ A,checkout
+React App Bundle,/assets/index-*.js,PENDING_BUILD_HASH,2026-01-01,Application runtime,checkout
+CSP Nonce Manager,/shared/csp-nonce.ts,PENDING_BUILD_HASH,2026-01-01,PCI Req. 6.4.3 script integrity,checkout
+Header Monitor,/shared/header-monitor.ts,PENDING_BUILD_HASH,2026-01-01,PCI Req. 11.6.1 header detection,checkout

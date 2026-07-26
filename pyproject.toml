@@ -1,0 +1,126 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jol-commerce"
+version = "0.1.0"
+description = "JOL Commerce Engine — PCI DSS SAQ A compliant e-commerce backend"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+    { name = "Journey of Life", email = "engineering@journeyoflife.org" },
+]
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "stripe>=11.0",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "sqlalchemy>=2.0",
+    "alembic>=1.14",
+    "httpx>=0.28",
+    "cryptography>=44.0",
+    "python-jose[cryptography]>=3.3",
+    "python-dateutil>=2.9",
+    "structlog>=25.1",
+    "prometheus-client>=0.22",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "pytest-cov>=6.0",
+    "httpx>=0.28",
+    "ruff>=0.11",
+    "mypy>=1.15",
+    "pre-commit>=4.1",
+    "pip-audit>=2.7",
+    "bandit>=1.8",
+    "detect-secrets>=1.5",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "S",    # bandit
+    "B",    # bugbear
+    "A",    # builtins
+    "C4",   # comprehensions
+    "DTZ",  # datetimez (timezone-aware)
+    "T20",  # print
+    "RET",  # return
+    "SIM",  # simplify
+    "TCH",  # type-checking
+    "ARG",  # unused arguments
+    "PTH",  # pathlib
+    "ERA",  # eradicate
+    "RUF",  # ruff-specific
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "ARG"]
+# FastAPI lifespan signature requires `app` parameter; webhook handlers use event-dispatch pattern
+"backend/jol_commerce/api/app.py" = ["ARG001"]
+"backend/jol_commerce/payments/webhook_handler.py" = ["ARG002"]
+# Pydantic models require runtime imports for field types (TYPE_CHECKING breaks model resolution)
+"backend/jol_commerce/api/schemas.py" = ["TC003"]
+"backend/jol_commerce/tax/invoice_generator.py" = ["TC003", "DTZ011"]
+"backend/jol_commerce/tax/tax_record_store.py" = ["TC003"]
+"backend/jol_commerce/orders/order_repository.py" = ["TC001"]
+# date.today() is intentional — VAT calculations use server-local date as transaction date
+"backend/jol_commerce/api/routes_tax.py" = ["DTZ011"]
+"backend/jol_commerce/tax/country_rates.py" = ["DTZ011"]
+"backend/jol_commerce/tax/vat_calculator.py" = ["DTZ011"]
+# Explicit `str, Enum` pattern preferred over StrEnum for clarity and serialization control
+"backend/jol_commerce/**/*.py" = ["UP042"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+# Stripe SDK ships with incomplete type stubs; suppress arg-type errors in payment modules
+[[tool.mypy.overrides]]
+module = [
+    "jol_commerce.payments.stripe_client",
+    "jol_commerce.payments.webhook_handler",
+]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "pci: marks tests as PCI DSS compliance tests",
+    "vat: marks VAT calculation tests",
+    "security: marks security tests",
+    "integration: marks integration tests (may require external services)",
+    "e2e: marks end-to-end tests (requires full stack)",
+    "audit: marks audit log integrity tests",
+    "slow: marks slow-running tests",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "node_modules"]
+
+[tool.coverage.run]
+source = ["backend/jol_commerce"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+fail_under = 30
+show_missing = true
