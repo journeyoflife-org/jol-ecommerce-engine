@@ -30,7 +30,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.version }}
 
@@ -58,7 +58,7 @@ jobs:
       name: production
       url: https://commerce.journeyoflife.org
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.version }}
 
