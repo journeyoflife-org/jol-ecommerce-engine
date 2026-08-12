@@ -75,5 +75,8 @@ git log vX.Y.Z --oneline -1                 # commit is the merge SHA
 - Tag == `pyproject.toml` `[project.version]` == CHANGELOG `[X.Y.Z]` header,
   always, on the same commit. Bump versions in the PR that lands the change,
   never in a tag-only commit.
-- Never reuse a tag name. A deleted tag is retired, not reassigned; if a
-  release must be re-cut, bump the patch version (`v2.2.1`).
+- Never reuse a tag name **once it has been consumed by any release or
+  deployment**. Sole exception: a false tag deleted before any consumer
+  saw it (as with the 2026-08-12 `v2.2.0` incident) may be re-cut on the
+  correct SHA, because the attestation was retracted before distribution.
+  If a shipped release must be replaced, bump the patch version (`v2.2.1`).
