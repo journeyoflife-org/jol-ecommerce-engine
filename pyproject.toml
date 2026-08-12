@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "jol-commerce"
-version = "0.1.0"
+version = "2.2.0"
 description = "JOL Commerce Engine — PCI DSS SAQ A compliant e-commerce backend"
 requires-python = ">=3.12"
 license = { text = "MIT" }
@@ -40,6 +40,9 @@ dev = [
     "bandit>=1.8",
     "detect-secrets>=1.5",
 ]
+
+[project.scripts]
+jol-cli = "jol_commerce.db.provisioning.cli:main"
 
 [tool.ruff]
 target-version = "py312"
@@ -78,6 +81,12 @@ select = [
 "backend/jol_commerce/tax/invoice_generator.py" = ["TC003", "DTZ011"]
 "backend/jol_commerce/tax/tax_record_store.py" = ["TC003"]
 "backend/jol_commerce/orders/order_repository.py" = ["TC001"]
+# Provisioner builds DDL/meta SQL from regex-validated schema identifiers
+# (`tenant_` + UUID hex) and artifact-derived revision IDs — no user-input path
+"backend/jol_commerce/db/provisioning/schema_provisioner.py" = ["S608"]
+# CLI registry INSERT quotes every value through _sql_literal and validates
+# slug/vertical against strict patterns before interpolation
+"backend/jol_commerce/db/provisioning/cli.py" = ["S608"]
 # date.today() is intentional — VAT calculations use server-local date as transaction date
 "backend/jol_commerce/api/routes_tax.py" = ["DTZ011"]
 "backend/jol_commerce/tax/country_rates.py" = ["DTZ011"]
@@ -112,6 +121,7 @@ markers = [
     "e2e: marks end-to-end tests (requires full stack)",
     "audit: marks audit log integrity tests",
     "slow: marks slow-running tests",
+    "load: marks concurrency/load tests (tenant context switching under contention)",
 ]
 
 [tool.bandit]

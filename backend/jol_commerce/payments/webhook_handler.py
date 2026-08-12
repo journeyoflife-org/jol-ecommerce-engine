@@ -17,6 +17,7 @@ import stripe
 
 from jol_commerce.audit.audit_log import AuditLogger
 from jol_commerce.config import get_settings
+from jol_commerce.payments.webhook_dedup import WebhookEventStore
 
 
 class WebhookEventType(str, Enum):
@@ -56,10 +57,12 @@ class StripeWebhookHandler:
     # Stripe recommends rejecting events older than 5 minutes
     MAX_TIMESTAMP_DRIFT_SECONDS = 300
 
-    def __init__(self) -> None:
+    def __init__(self, event_store: WebhookEventStore | None = None) -> None:
         settings = get_settings()
         self._webhook_secret = settings.stripe_webhook_secret
         self._audit = AuditLogger()
+        # Dedup is mandatory in production (gap 4.4); injectable for tests.
+        self._event_store = event_store if event_store is not None else WebhookEventStore()
 
     def verify_signature(
         self,
@@ -111,6 +114,19 @@ class StripeWebhookHandler:
         """
         event_type = event.type
         data = event.data.object
+
+        # Replay protection (gap 4.4): claim BEFORE dispatch so a replayed
+        # event can never double-fulfil or double-reverse. Replays are
+        # audited and acked (200) without reprocessing.
+        if not self._event_store.claim(event.id):
+            self._audit.log(
+                actor="stripe_webhook",
+                event_type=f"webhook.{event_type}",
+                outcome="duplicate",
+                transaction_ref=event.id,
+                details={"event_id": event.id, "action": "ack_without_processing"},
+            )
+            return {"status": "duplicate", "event_id": event.id}
 
         # Extract payment intent ID from the event data
         payment_intent_id = None

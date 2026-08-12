@@ -16,6 +16,24 @@ PCI DSS v4.0.1 Requirement 11.3 mandates:
 - Input validation (especially payment method ID format)
 - CSP header enforcement on payment pages
 
+### Multi-Tenancy (cross-tenant access — MANDATORY, ADR-001)
+
+Required by the custom-tenancy equivalence argument: with a hand-rolled
+tenancy layer, the QSA evidence must include a penetration test that
+specifically targets tenant isolation. Threat register:
+[`docs/tenancy-threat-model.md`](tenancy-threat-model.md).
+
+| Scenario | Attack | Expected result |
+|----------|--------|-----------------|
+| PT-T1 | Read another tenant's order by ID enumeration / direct object reference (authenticated as tenant A) | 404/403, audit entry, zero rows leaked |
+| PT-T2 | Write with forged `tenant_id` / forged `X-JOL-Tenant-ID` / forged subdomain `Host` header | Request rejected (400) or `CrossTenantAccessError`; no foreign rows created |
+| PT-T3 | Race: concurrent requests for different tenants against the shared connection pool (worker reuse, stale tenant context) | No context bleed; every response scoped to its own tenant |
+| PT-T4 | Bypass application guards: connect directly to PostgreSQL with the app role (or owner role), query across schemas with/without `app.current_tenant` set | RLS (`FORCE`) returns zero foreign rows; writes without the setting denied |
+| PT-T5 | Schema-name injection via crafted tenant identifiers | Identifier validation rejects; no SQL execution outside `tenant_{uuid-hex}` |
+
+The live-database variants (PT-T4, PT-T5) require a staging PostgreSQL
+provisioned from `backend/jol_commerce/db/sql/` artifacts.
+
 ### Network Layer
 - CDE perimeter (payment service network segment)
 - Segmentation between CDE and non-CDE networks

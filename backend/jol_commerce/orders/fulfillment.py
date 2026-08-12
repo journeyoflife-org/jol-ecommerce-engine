@@ -1,6 +1,8 @@
-"""Order fulfillment — post-payment order processing.
+"""Order fulfillment — post-payment service processing (Blueprint v2.0).
 
-Handles order confirmation, shipping coordination, and delivery tracking.
+Service-commerce fulfillment differs from goods shipping: confirmation
+moves the order into service delivery (`in_progress`) and completion is
+confirmed by the priest/branch foreman or caretaker in the field.
 All fulfillment events are logged to the audit trail.
 """
 
@@ -28,7 +30,7 @@ class FulfillmentService:
         self._events: list[FulfillmentEvent] = []
 
     def confirm_payment(self, order: Order, payment_intent_id: str) -> FulfillmentEvent:
-        """Confirm payment and transition order to processing.
+        """Confirm payment and transition order to confirmed.
 
         Args:
             order: The order to confirm.
@@ -38,7 +40,7 @@ class FulfillmentService:
             Fulfillment event for audit trail.
         """
         change = order.transition_to(
-            OrderStatus.PAYMENT_CONFIRMED,
+            OrderStatus.CONFIRMED,
             changed_by="stripe_webhook",
             reason=f"Payment confirmed: {payment_intent_id}",
         )
@@ -52,31 +54,26 @@ class FulfillmentService:
         self._events.append(event)
         return event
 
-    def ship_order(self, order: Order, tracking_number: str) -> FulfillmentEvent:
-        """Mark order as shipped.
+    def start_service(self, order: Order, assigned_to: str) -> FulfillmentEvent:
+        """Mark the order as in progress (dispatch assignment).
 
         Args:
-            order: The order to ship.
-            tracking_number: Shipping tracking number.
+            order: The order to start.
+            assigned_to: Caretaker/dispatcher assignment reference (no PII).
 
         Returns:
             Fulfillment event for audit trail.
         """
-        order.transition_to(
-            OrderStatus.PROCESSING,
-            changed_by="fulfillment_service",
-            reason="Preparing for shipment",
-        )
         change = order.transition_to(
-            OrderStatus.SHIPPED,
-            changed_by="fulfillment_service",
-            reason=f"Shipped with tracking: {tracking_number}",
+            OrderStatus.IN_PROGRESS,
+            changed_by="dispatch",
+            reason=f"Service assigned: {assigned_to}",
         )
 
         event = FulfillmentEvent(
             order_id=order.order_id,
-            event_type="order_shipped",
-            details=f"Tracking: {tracking_number}",
+            event_type="service_started",
+            details=f"Assigned: {assigned_to}",
             timestamp=change.changed_at,
         )
         self._events.append(event)

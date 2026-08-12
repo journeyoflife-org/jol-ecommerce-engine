@@ -27,7 +27,12 @@ from typing import Any
 
 @dataclass(frozen=True)
 class AuditEntry:
-    """A single immutable audit log entry."""
+    """A single immutable audit log entry.
+
+    Blueprint v2.0 §3.3 field set: actor, action (event_type),
+    entity_type/entity_id, timestamp, ip, user_agent, and the hash
+    chain (previous_hash → current_hash).
+    """
 
     entry_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
@@ -36,6 +41,10 @@ class AuditEntry:
     outcome: str = ""  # "success" or "failure"
     transaction_ref: str = ""  # Payment intent ID, order ID, etc.
     correlation_id: str = ""  # Links related events across services
+    entity_type: str = ""  # e.g., "order", "payment_token" (§3.3)
+    entity_id: str = ""  # Identifier of the affected entity (§3.3)
+    ip_address: str = ""  # Source IP — reference data, not PII content
+    user_agent: str = ""  # Client user agent hash/reference (§3.3)
     details: dict[str, Any] = field(default_factory=dict)
     previous_hash: str = ""  # Hash of the previous entry for tamper detection
 
@@ -47,6 +56,11 @@ class AuditEntry:
         """
         content = json.dumps(asdict(self), sort_keys=True, default=str)
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    @property
+    def current_hash(self) -> str:
+        """Alias for compute_hash() — Blueprint §3.3 hash-chain naming."""
+        return self.compute_hash()
 
 
 class AuditLogger:
