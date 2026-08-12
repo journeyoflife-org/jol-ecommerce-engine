@@ -75,22 +75,55 @@ class OrderItemSchema(BaseModel):
 
 
 class CreateOrderRequest(BaseModel):
-    """Request to create an order."""
+    """Request to create an order (Blueprint §3.3, §3.5 payment modes)."""
 
     customer_id: str
     items: list[OrderItemSchema]
     total_amount_cents: int
     currency: str = "EUR"
     country_code: str = Field(..., min_length=2, max_length=2)
+    payment_mode: str = Field(
+        default="online_prepay",
+        pattern=r"^(online_prepay|post_service|in_person|mixed)$",
+        description="Payment modality (Blueprint v2.0 §3.5)",
+    )
+    service_type: str = ""
+
+
+class OrderTransitionRequest(BaseModel):
+    """Request to transition/complete/cancel an order."""
+
+    status: str = Field(
+        default="",
+        description="Target status (transition endpoint only)",
+    )
+    actor: str = Field(..., min_length=1, description="Identity performing the change")
+    reason: str = ""
 
 
 class OrderResponse(BaseModel):
     """Order response."""
 
     order_id: str
+    tenant_id: str = ""
     status: str
+    payment_mode: str = "online_prepay"
     total_amount_cents: int
     currency: str
+    external_id: str = ""
+    commission_rate: str | None = None
+    platform_fee_cents: int | None = None
+
+
+# ── Catalog Schemas ──────────────────────────────────────────
+
+
+class CatalogCapabilitiesResponse(BaseModel):
+    """Vertical-governed catalog capabilities for the current tenant."""
+
+    vertical: str
+    service_types: list[str]
+    product_kinds: list[str]
 
 
 # ── Tax Schemas ──────────────────────────────────────────────

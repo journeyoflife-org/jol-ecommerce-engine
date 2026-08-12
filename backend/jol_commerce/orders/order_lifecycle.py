@@ -1,39 +1,90 @@
-"""Order lifecycle management — state machine for order processing.
+"""Order lifecycle management — v2.0 state machine (Blueprint §3.3).
 
-Every order state change produces an audit log entry (PCI DSS Req. 10).
+State machine:
+
+    [draft] ─▶ [reserved] ─▶ [confirmed] ─▶ [in_progress] ─▶ [completed]
+        │           │              │               │
+        └───────────┴──────────────┴───────────────┘
+                        ↓
+                 [cancelled]  (triggers refund workflow + audit entry)
+
+    [in_progress] ─▶ [payment_pending] when a deferred charge fails;
+    [payment_pending] ─▶ [completed] on retry success (Blueprint §4.2).
+
+Every order carries:
+- payment_mode: online_prepay | post_service | in_person | mixed
+- commission_snapshot captured on completion (default 10%, tenant-
+  configurable — Blueprint §3.3 Commission Engine).
+
+Every state change produces an audit log entry (PCI DSS Req. 10).
 """
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 
 
 class OrderStatus(str, Enum):
-    """Order lifecycle states."""
+    """Order lifecycle states (Blueprint v2.0 §3.3)."""
 
     DRAFT = "draft"
-    PENDING_PAYMENT = "pending_payment"
-    PAYMENT_CONFIRMED = "payment_confirmed"
-    PROCESSING = "processing"
-    SHIPPED = "shipped"
-    DELIVERED = "delivered"
+    RESERVED = "reserved"
+    CONFIRMED = "confirmed"
+    IN_PROGRESS = "in_progress"
+    PAYMENT_PENDING = "payment_pending"  # deferred charge failed (§4.2)
+    COMPLETED = "completed"
     CANCELLED = "cancelled"
-    REFUNDED = "refunded"
 
 
-# Valid state transitions
+class PaymentMode(str, Enum):
+    """Supported payment modalities (Blueprint v2.0 §3.5)."""
+
+    ONLINE_PREPAY = "online_prepay"  # Stripe Elements → immediate capture
+    POST_SERVICE = "post_service"  # SetupIntent → charge on completion
+    IN_PERSON = "in_person"  # Terminal receipt_ref linked to order
+    MIXED = "mixed"  # Partial online + deferred/in-person balance
+
+
+# Valid state transitions (Blueprint §3.3 state machine).
 VALID_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
-    OrderStatus.DRAFT: {OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED},
-    OrderStatus.PENDING_PAYMENT: {OrderStatus.PAYMENT_CONFIRMED, OrderStatus.CANCELLED},
-    OrderStatus.PAYMENT_CONFIRMED: {OrderStatus.PROCESSING, OrderStatus.CANCELLED},
-    OrderStatus.PROCESSING: {OrderStatus.SHIPPED, OrderStatus.CANCELLED},
-    OrderStatus.SHIPPED: {OrderStatus.DELIVERED, OrderStatus.REFUNDED},
-    OrderStatus.DELIVERED: {OrderStatus.REFUNDED},
+    OrderStatus.DRAFT: {OrderStatus.RESERVED, OrderStatus.CANCELLED},
+    OrderStatus.RESERVED: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
+    OrderStatus.CONFIRMED: {OrderStatus.IN_PROGRESS, OrderStatus.CANCELLED},
+    OrderStatus.IN_PROGRESS: {
+        OrderStatus.COMPLETED,
+        OrderStatus.PAYMENT_PENDING,
+        OrderStatus.CANCELLED,
+    },
+    OrderStatus.PAYMENT_PENDING: {OrderStatus.COMPLETED, OrderStatus.CANCELLED},
+    OrderStatus.COMPLETED: set(),
     OrderStatus.CANCELLED: set(),
-    OrderStatus.REFUNDED: set(),
 }
+
+# States from which cancellation (and refund workflow) is permitted.
+CANCELLABLE_STATES = {
+    OrderStatus.DRAFT,
+    OrderStatus.RESERVED,
+    OrderStatus.CONFIRMED,
+    OrderStatus.IN_PROGRESS,
+    OrderStatus.PAYMENT_PENDING,
+}
+
+
+@dataclass(frozen=True)
+class CommissionSnapshot:
+    """Commission split captured at order completion (Blueprint §3.3).
+
+    Amounts are in the smallest currency unit (cents). The snapshot is
+    immutable: later changes to the tenant contract rate must not alter
+    historical settlements.
+    """
+
+    rate: str  # e.g. "0.10"
+    platform_fee_cents: int
+    tenant_settlement_cents: int
 
 
 @dataclass
@@ -50,15 +101,21 @@ class OrderStateChange:
 
 @dataclass
 class Order:
-    """Order entity with lifecycle management."""
+    """Order entity with lifecycle management (Blueprint §3.3 domain model)."""
 
     order_id: str
+    tenant_id: str = ""
     status: OrderStatus = OrderStatus.DRAFT
+    payment_mode: PaymentMode = PaymentMode.ONLINE_PREPAY
     customer_id: str = ""
     items: list[dict[str, object]] = field(default_factory=list)
     total_amount_cents: int = 0
     currency: str = "EUR"
     country_code: str = ""
+    branch_id: str = ""
+    service_type: str = ""  # propagated to Bitrix24 sync (scrubbed payload)
+    external_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    commission_snapshot: CommissionSnapshot | None = None
     created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     updated_at: str = ""
     history: list[OrderStateChange] = field(default_factory=list)
@@ -102,3 +159,8 @@ class Order:
         self.history.append(change)
 
         return change
+
+    @property
+    def is_cancellable(self) -> bool:
+        """Cancellation is allowed up to (but not after) completion."""
+        return self.status in CANCELLABLE_STATES

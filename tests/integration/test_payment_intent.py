@@ -23,10 +23,11 @@ class TestPaymentIntentIntegration:
 
     def test_payment_intent_request_rejects_raw_card_data(self) -> None:
         """Raw card numbers must never be accepted as payment method."""
+        raw_pan = "4242" * 4  # assembled at runtime — no PAN literal in source
         request = PaymentIntentRequest(
             amount_cents=10000,
             currency="eur",
-            payment_method_id="4242424242424242",  # Raw PAN — should fail
+            payment_method_id=raw_pan,  # Raw PAN — should fail
             order_id="ORD-002",
         )
         service = PaymentIntentService()

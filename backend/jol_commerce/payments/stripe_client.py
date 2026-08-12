@@ -125,3 +125,111 @@ class StripeClient:
             headers["Idempotency-Key"] = idempotency_key
 
         return stripe.Refund.create(**params, **({"headers": headers} if headers else {}))
+
+    @staticmethod
+    def create_setup_intent(
+        payment_method_id: str,
+        *,
+        customer_id: str | None = None,
+        idempotency_key: str | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> stripe.SetupIntent:
+        """Create a SetupIntent for post-service deferred payment (§3.5).
+
+        The customer authorizes the card now; the charge is triggered
+        later on priest/caretaker completion confirmation (Blueprint §4.2).
+        Only the SetupIntent ID is stored — never card data.
+
+        Args:
+            payment_method_id: Stripe payment method token (pm_xxx).
+            customer_id: Optional Stripe customer ID.
+            idempotency_key: Idempotency key for retry safety.
+            metadata: Optional metadata dict (must NOT contain card data).
+
+        Returns:
+            Stripe SetupIntent object.
+
+        Raises:
+            ValueError: If payment_method_id is not a valid Stripe token.
+        """
+        if not payment_method_id.startswith("pm_"):
+            raise ValueError(
+                "payment_method_id must be a Stripe token (pm_xxx). "
+                "Raw card data must never be passed to this method.",
+            )
+
+        params: dict[str, object] = {
+            "payment_method": payment_method_id,
+            "confirm": True,
+            "usage": "off_session",
+        }
+        if customer_id:
+            params["customer"] = customer_id
+        if metadata:
+            params["metadata"] = metadata
+
+        headers = {}
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
+
+        return stripe.SetupIntent.create(
+            **params,
+            **({"headers": headers} if headers else {}),
+        )
+
+    @staticmethod
+    def charge_from_token(
+        amount_cents: int,
+        currency: str,
+        payment_method_id: str,
+        *,
+        customer_id: str | None = None,
+        idempotency_key: str | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> stripe.PaymentIntent:
+        """Charge a stored payment method off-session (deferred payment).
+
+        Blueprint §4.2 step 5: charge triggered using the stored token
+        after service completion. The token reference must originate
+        from a successful SetupIntent authorization.
+
+        Args:
+            amount_cents: Amount in the smallest currency unit.
+            currency: ISO 4217 currency code.
+            payment_method_id: Stored Stripe token (pm_xxx).
+            customer_id: Stripe customer ID (required off-session).
+            idempotency_key: Idempotency key for retry safety.
+            metadata: Optional metadata dict (must NOT contain card data).
+
+        Returns:
+            Stripe PaymentIntent object (confirm=True, off_session=True).
+
+        Raises:
+            ValueError: If payment_method_id is not a valid Stripe token.
+        """
+        if not payment_method_id.startswith("pm_"):
+            raise ValueError(
+                "payment_method_id must be a Stripe token (pm_xxx). "
+                "Raw card data must never be passed to this method.",
+            )
+
+        params: dict[str, object] = {
+            "amount": amount_cents,
+            "currency": currency,
+            "payment_method": payment_method_id,
+            "confirm": True,
+            "off_session": True,
+        }
+        if customer_id:
+            params["customer"] = customer_id
+        if metadata:
+            params["metadata"] = metadata
+
+        headers = {}
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
+
+        return stripe.PaymentIntent.create(
+            **params,
+            **({"headers": headers} if headers else {}),
+        )
