@@ -1,0 +1,48 @@
+# Tag integrity check — release attestation guard (SOC2 CC7.1)
+#
+# Prevents recurrence of the 2026-08-12 v2.2.0 incident: a tag was pushed
+# pointing at a pre-merge Dependabot commit — a false release attestation.
+# A `v*` tag must:
+#   1. point exactly at the origin/main tip (tags are cut on the merge SHA),
+#   2. have a matching CHANGELOG.md entry and pyproject.toml version.
+# See docs/release-runbook.md for the mandated release procedure.
+
+name: tag-integrity-check
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag must point at the origin/main tip
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          TAG_SHA=$(git rev-list -n1 "refs/tags/${TAG_NAME}")
+          MAIN_SHA=$(git rev-list -n1 origin/main)
+          if [ "${TAG_SHA}" != "${MAIN_SHA}" ]; then
+            echo "::error::Tag ${TAG_NAME} points to ${TAG_SHA}, but main is at ${MAIN_SHA}."
+            echo "::error::Release tags may only be cut on the merged SHA (docs/release-runbook.md)."
+            exit 1
+          fi
+
+      - name: Version must match CHANGELOG.md and pyproject.toml
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG_NAME#v}"
+          grep -q "^## \[${VERSION}\]" CHANGELOG.md || {
+            echo "::error::CHANGELOG.md has no [${VERSION}] entry"; exit 1; }
+          grep -q "^version = \"${VERSION}\"" pyproject.toml || {
+            echo "::error::pyproject.toml version is not ${VERSION}"; exit 1; }
