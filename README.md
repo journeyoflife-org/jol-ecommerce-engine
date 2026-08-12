@@ -10,6 +10,43 @@ PCI DSS SAQ A compliant e-commerce engine for Journey of Life, serving 27 EU cou
 - **VAT**: Decimal-precision calculation for all 27 EU countries
 - **Audit**: Immutable hash-chained audit log (PCI DSS Req. 10)
 
+## Cross-Plane Tenancy Contract (with jol-hub)
+
+Per [ADR-001](docs/adr/ADR-001-tenancy-framework-divergence.md), tenancy is a
+two-plane system: **jol-hub** (Django + django-tenants) is the tenant
+management & admin plane that provisions tenant schemas; **this engine**
+(FastAPI) is the data plane that assumes those schemas are isolation-hardened.
+
+**The engine assumes — and cannot detect otherwise — that every tenant
+schema created by the jol-hub migration runner carries the same RLS posture
+as the engine's own provisioning path.** The source of truth is
+[`backend/jol_commerce/db/sql/002_tenant_schema_template.sql`](backend/jol_commerce/db/sql/002_tenant_schema_template.sql);
+the jol-hub runner must apply its full content to every new `tenant_{uuid}`
+schema:
+
+| Requirement | DDL |
+|---|---|
+| RLS enabled **and forced** on every tenant table (`orders`, `payment_tokens`, `commission_ledger`, and any future tenant-owned table) | `ALTER TABLE {t} ENABLE ROW LEVEL SECURITY; ALTER TABLE {t} FORCE ROW LEVEL SECURITY;` |
+| Isolation policy per table, bound to the per-request session setting — never a literal | `CREATE POLICY tenant_isolation_{t} ON {t} USING (tenant_id = current_setting('app.current_tenant')::UUID);` |
+| Append-only audit log | `BEFORE UPDATE`/`BEFORE DELETE` triggers on `audit_log` |
+
+Notes:
+
+- `FORCE` is mandatory: without it the table **owner** bypasses RLS, and a
+  Django migration connection typically runs as that owner.
+- A schema provisioned by Django **without** these policies is an isolation
+  gap the engine cannot detect at runtime — its
+  [`tests/security/test_rls_ddl_contract.py`](tests/security/test_rls_ddl_contract.py)
+  guard only verifies the engine's own template, not live schemas. jol-hub
+  must assert the live state after provisioning (e.g. query
+  `pg_class.relrowsecurity`/`relforcerowsecurity` for every tenant table)
+  and fail the provisioning transaction otherwise.
+- Live leak testing of this contract is in the penetration-test scope
+  ([`docs/penetration-test-scope.md`](docs/penetration-test-scope.md), PT-T series).
+
+The identical contract is documented in the jol-hub README
+(Database & Migrations → Tenant Schema Provisioning).
+
 ## Quick Start
 
 ```bash
