@@ -6,12 +6,14 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "python"
     reviewers:
-      - "journeyoflife-org/platform-core"
+      - "journeyoflife-org/frontend"
+    commit-message:
+      prefix: "build(deps)"
 
   # Node.js dependencies
   - package-ecosystem: "npm"
@@ -19,18 +21,50 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "javascript"
     reviewers:
-      - "journeyoflife-org/platform-core"
+      - "journeyoflife-org/frontend"
+    commit-message:
+      prefix: "build(deps)"
+    # R7 2026-09-16: Ignore major version bumps until pilot stabilises.
+    # These are disruptive upgrades with breaking changes — re-enable
+    # per-package when the ecommerce engine exits pilot status.
+    ignore:
+      - dependency-name: "vite"
+        versions: [">=7.0.0"]
+      - dependency-name: "eslint"
+        versions: [">=10.0.0"]
+      - dependency-name: "vitest"
+        versions: [">=4.0.0"]
+      - dependency-name: "@vitejs/plugin-react"
+        versions: [">=5.0.0"]
+      - dependency-name: "@stripe/stripe-js"
+        versions: [">=8.0.0"]
+      - dependency-name: "@stripe/react-stripe-js"
+        versions: [">=4.0.0"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "ci"
+    reviewers:
+      - "journeyoflife-org/devops"
+    commit-message:
+      prefix: "ci(deps)"
+    # R7 2026-09-16: Ignore major version bumps for CI actions until
+    # the pipeline is stabilised. Re-enable per-action when ready.
+    ignore:
+      - dependency-name: "actions/setup-python"
+        versions: [">=6.0.0"]
+      - dependency-name: "actions/upload-artifact"
+        versions: [">=5.0.0"]
+      - dependency-name: "JetBrains/qodana-action"
+        versions: [">=2025.0.0"]
