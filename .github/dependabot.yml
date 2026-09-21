@@ -66,5 +66,3 @@ updates:
         versions: [">=6.0.0"]
       - dependency-name: "actions/upload-artifact"
         versions: [">=5.0.0"]
-      - dependency-name: "JetBrains/qodana-action"
-        versions: [">=2025.0.0"]
